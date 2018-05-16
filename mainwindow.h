@@ -6,12 +6,15 @@
 #include <QVector>
 #include <QImage>
 #include <QPoint>
+#include <QKeyEvent>
+#include <vector>
 #define moveLeft  0
 #define moveRight 1
 #define moveUp    2
 #define moveDown  3
 #define moveStop  4
 using namespace cv;
+using namespace std;
 namespace Ui {
 class MainWindow;
 }
@@ -25,19 +28,21 @@ public:
     ~MainWindow();
 private slots:
     void on_OpenFile_clicked();
-
     void on_UpBtn_clicked();
-
     void on_LeftBtn_clicked();
-
     void on_DownBtn_clicked();
-
     void on_RightBtn_clicked();
-
     void on_StepLineEdit_editingFinished();
 
 private:
     Ui::MainWindow *ui;
+ protected:
+     void keyPressEvent(QKeyEvent *event);
+signals:
+     void up_control();
+     void down_control();
+     void left_control();
+     void right_control();
     //User Define Func and Var
 public:
     Mat OriImage;
@@ -46,13 +51,19 @@ public:
     int x_distance;
     int step;
     int dir;
-     QPoint xyoffset;
+    bool isFindWholeCircle;
+    bool isSuccessFindObject;
+    QPoint xyoffset;
+    QPoint xyMatch;
     QVector<QPoint>path;
     QImage convertMatToQImage(cv::Mat &mat);
     void dispLabelImage(QImage);
     void updataDisoffset(QPoint);
+    void upadateMatchXY(int x,int y);
     void updataDir(int);
     Mat moveImage(Mat &InputImage,Mat &OutImage, QPoint offset);
+    Point3f LeastSquareFittingCircle(vector<Point> temp_coordinates);//最小二乘法拟合圆
+    Mat processImage(Mat InputImage,Mat outImage);
 };
 
 #endif // MAINWINDOW_H
