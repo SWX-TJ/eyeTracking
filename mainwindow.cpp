@@ -8,7 +8,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
     // init User Var
     x_distance =0;
-    step  = 10;
+    step  = 1;
     dir = moveStop;
     xyoffset.setX(0);
     xyoffset.setY(0);
