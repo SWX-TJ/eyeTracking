@@ -25,7 +25,6 @@ void MainWindow::on_OpenFile_clicked()
     QString fileName = QFileDialog::getOpenFileName(
                 this, tr("open image file"),
                 "./", tr("Image files(*.bmp *.jpg );;All files (*.*)"));
-
     OriImage = imread(fileName.toStdString());
     MovedImage =  Mat(OriImage.rows,OriImage.cols,CV_8UC3,Scalar(0,0,0));
     dispImage = convertMatToQImage(OriImage);
@@ -160,7 +159,7 @@ void MainWindow::on_LeftBtn_clicked()
     dispImage = convertMatToQImage(MovedImage);
     dispLabelImage(dispImage);
     dir = moveLeft;
-        updataDir(dir);
+    updataDir(dir);
 }
 
 void MainWindow::on_DownBtn_clicked()
@@ -175,7 +174,7 @@ void MainWindow::on_DownBtn_clicked()
     dispImage = convertMatToQImage(MovedImage);
     dispLabelImage(dispImage);
     dir = moveDown;
-        updataDir(dir);
+    updataDir(dir);
 }
 
 void MainWindow::on_RightBtn_clicked()
@@ -190,7 +189,7 @@ void MainWindow::on_RightBtn_clicked()
     dispImage = convertMatToQImage(MovedImage);
     dispLabelImage(dispImage);
     dir = moveRight;
-        updataDir(dir);
+    updataDir(dir);
 }
 
 void MainWindow::on_StepLineEdit_editingFinished()
