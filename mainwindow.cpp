@@ -11,6 +11,7 @@ MainWindow::MainWindow(QWidget *parent) :
     step  = 10;
     isFindWholeCircle = false;
     isSuccessFindObject = false;
+    msec = 2000;
     dir = moveStop;
     xyoffset.setX(0);
     xyoffset.setY(0);
@@ -37,6 +38,8 @@ void MainWindow::on_OpenFile_clicked()
     xyoffset.setY(0);
     updataDisoffset(xyoffset);
     OriImage = imread(fileName.toStdString());
+    Image_cent_x = cvRound(OriImage.cols/2);
+    Image_cent_y = cvRound(OriImage.rows/2);
     MovedImage =  Mat(OriImage.rows,OriImage.cols,CV_8UC3,Scalar(0,0,0));
     dispImage = convertMatToQImage(OriImage);
     dispLabelImage(dispImage);
@@ -98,6 +101,7 @@ void MainWindow::updataDir(int dispdir)
         ui->DirLabel->setText("Right");
         break;
     default:
+        ui->DirLabel->setText("Stop");
         break;
     }
 }
@@ -195,9 +199,10 @@ Point3f MainWindow::LeastSquareFittingCircle(vector<Point> temp_coordinates)
 
 Mat MainWindow::processImage(Mat InputImage, Mat outImage)
 {
+    Mat orImage = InputImage.clone();
     //灰度化
     Mat  GrayImage;
-    cvtColor(InputImage, GrayImage, COLOR_BGR2GRAY);
+    cvtColor(orImage, GrayImage, COLOR_BGR2GRAY);
     //二值化
     Mat BinImage;
     threshold(GrayImage, BinImage, 0, 255, THRESH_OTSU);
@@ -227,16 +232,6 @@ Mat MainWindow::processImage(Mat InputImage, Mat outImage)
     {
         isFindWholeCircle = false;
     }
-    for (size_t i = 0; i < circles.size(); i++)
-    {
-        //参数定义
-        Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
-        int radius = cvRound(circles[i][2]);
-        //绘制圆心
-        circle(contourImg, center, 3, Scalar(0, 255, 0), -1, 8, 0);
-        //绘制圆轮廓
-        circle(contourImg, center, radius, Scalar(155, 50, 255), 3, 8, 0);
-    }
     //最小二乘拟合圆
     for (int j = 0; j < final_contours.size(); j++)
     {
@@ -245,35 +240,107 @@ Mat MainWindow::processImage(Mat InputImage, Mat outImage)
         {
             if (3.14* circle_data.z*circle_data.z > 8000 && 3.14* circle_data.z*circle_data.z < 13000&&abs(cvRound(circles[0][0])-circle_data.x)<10)
             {
-                circle(InputImage, Point(circle_data.x, circle_data.y), circle_data.z, Scalar(0, 255, 0), 2);
-                circle(InputImage, Point(circle_data.x, circle_data.y), 2, Scalar(0, 0, 255), 4);
-                upadateMatchXY(circle_data.x, circle_data.y);
-                break;
+                if(selectCircle(InputImage,final_contours.at(j),circle_data)>0)
+                {
+                    circle(InputImage, Point(circle_data.x, circle_data.y), circle_data.z, Scalar(0, 255, 0), 2);
+                    circle(InputImage, Point(circle_data.x, circle_data.y), 2, Scalar(0, 0, 255), 4);
+                    upadateMatchXY(circle_data.x, circle_data.y);
+                    break;
+                }
             }
             else
             {
-               // upadateMatchXY(-1,-1);
-                // break;
+                upadateMatchXY(-1, -1);
             }
         }
         else
         {
-            if (3.14* circle_data.z*circle_data.z > 8000 && 3.14* circle_data.z*circle_data.z < 13000)
+            if (3.14* circle_data.z*circle_data.z > 3500 && 3.14* circle_data.z*circle_data.z < 13000)
             {
-                circle(InputImage, Point(circle_data.x, circle_data.y), circle_data.z, Scalar(0, 255, 0), 2);
-                circle(InputImage, Point(circle_data.x, circle_data.y), 2, Scalar(0, 0, 255), 4);
-                upadateMatchXY(circle_data.x, circle_data.y);
-                // break;
+                if(selectCircle(InputImage,final_contours.at(j),circle_data)>0)
+                {
+                    circle(InputImage, Point(circle_data.x, circle_data.y), circle_data.z, Scalar(0, 255, 0), 2);
+                    circle(InputImage, Point(circle_data.x, circle_data.y), 2, Scalar(0, 0, 255), 4);
+                    upadateMatchXY(circle_data.x, circle_data.y);
+                    break;
+                }
             }
             else
             {
-               // upadateMatchXY(-1,-1);
-                // break;
+                upadateMatchXY(-1, -1);
             }
         }
 
     }
     return outImage;
+}
+
+int MainWindow::selectCircle(Mat InputImage, vector<Point>conutor_point, Point3f circle_data)
+{
+    int circle_center_x = cvRound(circle_data.x);
+    int circle_center_y = cvRound(circle_data.y);
+    int circle_radius = cvRound(circle_data.z);
+    int min_left = circle_center_x-circle_radius;
+    int max_right = circle_center_x+circle_radius;
+    int min_up = circle_center_y-circle_radius;
+    int max_down = circle_center_y+circle_radius;
+    if(min_left>=0&&max_right<InputImage.cols&&min_up>=0&&max_down<InputImage.rows)
+    {
+        Mat OrImage = InputImage.clone();
+        Mat RoiImage =OrImage(Rect(min_left,min_up,circle_radius*2,circle_radius*2));
+        Mat temp_RoiImage;
+        cvtColor(RoiImage,temp_RoiImage,COLOR_BGR2GRAY);
+        vector<Vec3f> circles;
+        HoughCircles(temp_RoiImage, circles, CV_HOUGH_GRADIENT, 1.5, 200, 20, 100, 0, 0);
+        //imshow("temp_RoiImage",temp_RoiImage);
+        if(circles.size()>0)
+        {
+            //cout<<circles.size()<<endl;
+            Point center(cvRound(circles[0][0]), cvRound(circles[0][1]));
+            int radius = cvRound(circles[0][2]);
+            circle(RoiImage, center, 3, Scalar(0, 255, 0), -1, 8, 0);
+            circle(RoiImage, center, radius, Scalar(155, 50, 255), 3, 8, 0);
+            //  imshow("RoiImage",RoiImage);
+            return 1;
+        }
+        else
+        {
+            return -1;
+        }
+    }
+    else
+    {
+        int count_match_point = 0;
+        for(int k = 0;k<conutor_point.size();k++)
+        {
+            // cout<<DisP2P(conutor_point.at(k),Point(circle_center_x,circle_center_y))-circle_radius<<endl;
+            if(abs(DisP2P(conutor_point.at(k),Point(circle_center_x,circle_center_y))-circle_radius)<5)
+            {
+                count_match_point++;
+            }
+        }
+
+        if((float)count_match_point/conutor_point.size()>0.5)
+        {
+            return 1;
+        }
+        else
+        {
+            return -1;
+        }
+    }
+}
+
+float MainWindow::DisP2P(Point p1, Point p2)
+{
+    float distance = sqrt((pow((p1.x-p2.x),2)+pow((p1.y-p2.y),2)));
+    return distance;
+}
+
+void MainWindow::m_sleep(unsigned int msec)
+{
+    QTime reachTime = QTime::currentTime().addMSecs(msec);
+    while(QTime::currentTime()<reachTime){}
 }
 
 
@@ -291,6 +358,7 @@ void MainWindow::on_UpBtn_clicked()
     dispLabelImage(dispImage);
     dir = moveUp;
     updataDir(dir);
+
 }
 
 void MainWindow::on_DownBtn_clicked()
@@ -307,6 +375,7 @@ void MainWindow::on_DownBtn_clicked()
     dispLabelImage(dispImage);
     dir = moveDown;
     updataDir(dir);
+
 }
 
 
@@ -324,13 +393,13 @@ void MainWindow::on_LeftBtn_clicked()
     dispLabelImage(dispImage);
     dir = moveLeft;
     updataDir(dir);
+
 }
 
 
 
 void MainWindow::on_RightBtn_clicked()
 {
-
     xyoffset.setX(xyoffset.x()+step);
     if(abs(xyoffset.x())>OriImage.cols)
     {
@@ -343,6 +412,7 @@ void MainWindow::on_RightBtn_clicked()
     dispLabelImage(dispImage);
     dir = moveRight;
     updataDir(dir);
+
 }
 
 void MainWindow::on_StepLineEdit_editingFinished()
@@ -371,4 +441,178 @@ void MainWindow::keyPressEvent(QKeyEvent *event)
     default:
         break;
     }
+}
+
+void MainWindow::on_AutoBtn_clicked()
+{
+    upadateMatchXY(-1,-1);
+    xyoffset.setX(0);
+    xyoffset.setY(0);
+    updataDisoffset(xyoffset);
+    ui->AgentAction->clear();
+    while(DisP2P(Point(xyMatch.x(),xyMatch.y()),Point(Image_cent_x,Image_cent_y))>5)
+    {
+        cout<<DisP2P(Point(xyMatch.x(),xyMatch.y()),Point(Image_cent_x,Image_cent_y))<<endl;
+        if(xyMatch.x()==-1&&xyMatch.y()==-1)
+        {
+            step = 200;
+            int i =0;
+            bool one_success = false;
+            bool two_success = false;
+            bool three_success = false;
+            bool four_success = false;
+            for( i =0;i<100;i+=step)
+            {
+                left_control();
+                ui->AgentAction->append(QString("Dir：left %1").arg(step)+"\n");
+
+                up_control();
+                ui->AgentAction->append(QString("Dir：up %1").arg(step)+"\n");
+
+                if(xyMatch.x()!=-1)
+                {
+                    one_success = true;
+                    break;
+                }
+                else
+                {
+                    one_success =false;
+                }
+            }
+            if(one_success==false)
+            {
+                for( i =0;i<100;i+=step)
+                {
+                    right_control();
+                    ui->AgentAction->append(QString("Dir：right %1").arg(step)+"\n");
+
+                    down_control();
+                    ui->AgentAction->append(QString("Dir：down %1").arg(step)+"\n");
+
+                }
+            }
+            for( i =0;i<100;i+=step)
+            {
+                left_control();
+                ui->AgentAction->append(QString("Dir：left %1").arg(step)+"\n");
+
+                down_control();
+                ui->AgentAction->append(QString("Dir：down %1").arg(step)+"\n");
+
+                if(xyMatch.x()!=-1)
+                {
+                    two_success = true;
+                    break;
+                }
+                else
+                {
+                    two_success = false;
+                }
+            }
+            if(two_success==false)
+            {
+                for( i =0;i<100;i+=step)
+                {
+                    right_control();
+                    ui->AgentAction->append(QString("Dir：right %1").arg(step)+"\n");
+
+                    up_control();
+                    ui->AgentAction->append(QString("Dir：up %1").arg(step)+"\n");
+
+                }
+            }
+            for( i =0;i<100;i+=step)
+            {
+                right_control();
+                ui->AgentAction->append(QString("Dir：right %1").arg(step)+"\n");
+
+                up_control();
+                ui->AgentAction->append(QString("Dir：up %1").arg(step)+"\n");
+
+                if(xyMatch.x()!=-1)
+                {
+                    three_success = true;
+                    break;
+                }
+                else
+                {
+                    three_success = false;
+                }
+            }
+            if(three_success==false)
+            {
+                for( i =0;i<100;i+=step)
+                {
+                    left_control();
+                    ui->AgentAction->append(QString("Dir：left Moved:%1").arg(step)+"\n");
+
+                    down_control();
+                    ui->AgentAction->append(QString("Dir：down Moved:%1").arg(step)+"\n");
+
+                }
+            }
+            for( i =0;i<100;i+=step)
+            {
+                right_control();
+                ui->AgentAction->append(QString("Dir：right Moved:%1").arg(step)+"\n");
+
+                down_control();
+                ui->AgentAction->append(QString("Dir：down Moved:%1").arg(step)+"\n");
+
+                if(xyMatch.x()!=-1)
+                {
+                    four_success = true;
+                    break;
+                }
+                else
+                {
+                    four_success = false;
+                }
+            }
+            if(four_success==false)
+            {
+                for( i =0;i<100;i+=step)
+                {
+                    left_control();
+                    ui->AgentAction->append(QString("Dir：left Moved:%1").arg(step)+"\n");
+
+                    up_control();
+                    ui->AgentAction->append(QString("Dir：up Moved:%1").arg(step)+"\n");
+
+                }
+            }
+        }
+        if(xyMatch.x()>320)
+        {
+            step = 5;
+            left_control();
+            ui->AgentAction->append(QString("Dir：left Moved:%1").arg(step)+"\n");
+
+        }
+        else
+        {
+            step = 5;
+            right_control();
+            ui->AgentAction->append(QString("Dir：right Moved:%1").arg(step)+"\n");
+
+        }
+        if(xyMatch.y()>240)
+        {
+            step = 5;
+            up_control();
+            ui->AgentAction->append(QString("Dir：up Moved:%1").arg(step)+"\n");
+
+        }
+        else
+        {
+            step = 5;
+            down_control();
+            ui->AgentAction->append(QString("Dir：down Moved:%1").arg(step)+"\n");
+
+        }
+    }
+    dir = moveStop;
+    updataDir(dir);
+    ui->AgentAction->append(QString("Dir：Stop")+"\n");
+    step = ui->StepLineEdit->text().toInt();
 }

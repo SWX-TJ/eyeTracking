@@ -8,6 +8,7 @@
 #include <QPoint>
 #include <QKeyEvent>
 #include <vector>
+#include <QTime>
 #define moveLeft  0
 #define moveRight 1
 #define moveUp    2
@@ -34,6 +35,8 @@ private slots:
     void on_RightBtn_clicked();
     void on_StepLineEdit_editingFinished();
 
+    void on_AutoBtn_clicked();
+
 private:
     Ui::MainWindow *ui;
  protected:
@@ -51,19 +54,26 @@ public:
     int x_distance;
     int step;
     int dir;
+    int Image_cent_x;
+    int Image_cent_y;
     bool isFindWholeCircle;
     bool isSuccessFindObject;
     QPoint xyoffset;
     QPoint xyMatch;
     QVector<QPoint>path;
+    int msec;
     QImage convertMatToQImage(cv::Mat &mat);
     void dispLabelImage(QImage);
     void updataDisoffset(QPoint);
     void upadateMatchXY(int x,int y);
     void updataDir(int);
-    Mat moveImage(Mat &InputImage,Mat &OutImage, QPoint offset);
+    Mat moveImage(Mat &InputImage,Mat &OutImage, QPoint offset);//移动图像主函数
     Point3f LeastSquareFittingCircle(vector<Point> temp_coordinates);//最小二乘法拟合圆
-    Mat processImage(Mat InputImage,Mat outImage);
+    Mat processImage(Mat InputImage,Mat outImage);//处理图像主函数
+    int selectCircle(Mat InputImage,vector<Point>,Point3f);//筛选识别到的最合理轮廓
+    float DisP2P(Point,Point);//计算点到点的距离
+    //定义一个延时可视化函数
+    void m_sleep(unsigned int msec);
 };
 
 #endif // MAINWINDOW_H
